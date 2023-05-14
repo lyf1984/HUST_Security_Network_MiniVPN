@@ -79,7 +79,7 @@ int main()
             printf(PREFIX "SSL connection established!\n");
             int ret = verify_user(ssl, sa_client, new_sock);
             if (ret == -1)
-                printf(PREFIX "Verify user failed!\n");
+                printf(PREFIX "Login failed!\n");
         }
         // 从SSL链路接收数据及判断客户端是否断开连接
         for (i = 0; i < MAX_SESSIONS; i++)
@@ -90,7 +90,6 @@ int main()
             {
                 int client_sock = session_table[i].socket_fd;
                 SSL* ssl = session_table[i].ssl_session;
-                printf(PREFIX "Send packet to sock:%d\n", client_sock);
                 sendto_TUN(ssl, client_sock, tunfd);
             }
         }

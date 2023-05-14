@@ -110,14 +110,14 @@ int sendto_TUN(SSL *ssl, int client_sock, int tunfd)
     // 出现错误
     if (len < 0)
     {
-        int error = SSL_get_error(ssl,len);
+        int error = SSL_get_error(ssl, len);
         printf(PREFIX "SSL_read error! error code:%d\n", error);
         unsigned long err = ERR_get_error();
         if (err != 0)
         {
             char err_msg[256];
             ERR_error_string_n(err, err_msg, sizeof(err_msg));
-            printf(PREFIX"OpenSSL Error: %s\n", err_msg);
+            printf(PREFIX "OpenSSL Error: %s\n", err_msg);
         }
         return -2;
     }
@@ -146,7 +146,7 @@ void sendto_SSL(int tunfd)
             printf(PREFIX "No such session in table!\n");
             return;
         }
-        SSL* ssl = session->ssl_session;
+        SSL *ssl = session->ssl_session;
         SSL_set_fd(ssl, session->socket_fd);
         int ret = SSL_write(ssl, buf, len);
         printf(PREFIX "TUN => SSL: %dbytes", ret);
@@ -161,7 +161,7 @@ int login(char *user, char *passwd)
     pw = getspnam(user);
     if (pw == NULL)
     {
-        printf(PREFIX "Getspnam failed!\n");
+        printf(PREFIX "User not exist!\n");
         return -1;
     }
     printf(PREFIX "Login name: %s\n", pw->sp_namp);
@@ -169,7 +169,7 @@ int login(char *user, char *passwd)
     epasswd = crypt(passwd, pw->sp_pwdp);
     if (strcmp(epasswd, pw->sp_pwdp))
     {
-        printf(PREFIX "Password not correct");
+        printf(PREFIX "Password not correct\n");
         return -1;
     }
     return 1;
@@ -185,7 +185,7 @@ int verify_user(SSL *ssl, struct sockaddr_in client_addr, int sock)
     SSL_read(ssl, username, sizeof(username) - 1);
     SSL_read(ssl, passwd, sizeof(username) - 1);
 
-    if (login(username, passwd))
+    if (login(username, passwd) == 1)
     {
         int i;
         inet_ntop(AF_INET, &client_addr.sin_addr, client_IP, sizeof(client_IP));
@@ -204,8 +204,17 @@ int verify_user(SSL *ssl, struct sockaddr_in client_addr, int sock)
             return -1;
         }
         printf(PREFIX "Assign IP:%s\n", virtual_IP);
+        SSL_write(ssl, "yes", strlen("yes")); // send success
         SSL_write(ssl, virtual_IP, strlen(virtual_IP));
         return 0;
     }
-    return -1;
+    // 验证失败
+    else
+    {
+        SSL_write(ssl, "no", strlen("no")); // send fail
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(sock);
+        return -1;
+    }
 }

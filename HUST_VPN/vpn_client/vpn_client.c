@@ -31,7 +31,15 @@ int main(int argc, char *argv[])
     printf(PREFIX "SSL connected! \n");
     printf(PREFIX "SSL connection using %s\n", SSL_get_cipher(ssl));
     /*------ Authenticating ------*/
-    try_login(ssl);
+    int ret = try_login(ssl);
+    //login failed
+    if (ret < 0){
+        printf(PREFIX"Login failed!\n");
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(sockfd);
+        return 0;
+    }
     printf(PREFIX "Login successfully!\n");
     /*------ Allocate IP ------*/
     char client_IP[64] = {0};
@@ -56,10 +64,10 @@ int main(int argc, char *argv[])
         if (FD_ISSET(sockfd, &readFDSet))
         {
             ret = sendto_TUN(ssl, tunfd);
-            //服务端关闭会话
+            // 服务端关闭会话
             if (ret == -1)
             {
-                printf(PREFIX"Server disconnected!\n");
+                printf(PREFIX "Server disconnected!\n");
                 SSL_shutdown(ssl);
                 SSL_free(ssl);
                 close(sockfd);

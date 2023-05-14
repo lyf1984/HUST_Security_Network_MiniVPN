@@ -143,10 +143,11 @@ int createTunDevice()
     return tunfd;
 }
 
-void try_login(SSL *ssl)
+int try_login(SSL *ssl)
 {
     char username[256];
     char passwd[10];
+    char result[16] = {0};
 
     printf(PREFIX "Enter Username:");
     scanf("%s", username);
@@ -155,6 +156,31 @@ void try_login(SSL *ssl)
 
     SSL_write(ssl, username, strlen(username)); // username
     SSL_write(ssl, passwd, strlen(passwd));     // password
+
+    int ret = SSL_read(ssl, result, sizeof(result) - 1);
+    if (ret > 0)
+    {
+        // 登陆成功
+        if (!strcmp(result, "yes"))
+            return 1;
+        if (!strcmp(result, "no"))
+            return -1;
+    }
+
+    //出错
+    if (ret < 0)
+    {
+        int error = SSL_get_error(ssl,ret);
+        printf(PREFIX "SSL_read error! error code:%d\n", error);
+        unsigned long err = ERR_get_error();
+        if (err != 0)
+        {
+            char err_msg[256];
+            ERR_error_string_n(err, err_msg, sizeof(err_msg));
+            printf(PREFIX"OpenSSL Error: %s\n", err_msg);
+        }
+        return -2;
+    }
 }
 
 void sendto_TUN(SSL *ssl, int tunfd)
@@ -170,14 +196,14 @@ void sendto_TUN(SSL *ssl, int tunfd)
     // 出现错误
     if (len < 0)
     {
-        int error = SSL_get_error(ssl,len);
+        int error = SSL_get_error(ssl, len);
         printf(PREFIX "SSL_read error! error code:%d\n", error);
         unsigned long err = ERR_get_error();
         if (err != 0)
         {
             char err_msg[256];
             ERR_error_string_n(err, err_msg, sizeof(err_msg));
-            printf(PREFIX"OpenSSL Error: %s\n", err_msg);
+            printf(PREFIX "OpenSSL Error: %s\n", err_msg);
         }
         return -2;
     }
@@ -185,8 +211,6 @@ void sendto_TUN(SSL *ssl, int tunfd)
     printf(PREFIX "SSL => TUN: %dbytes\n", ret);
     return 0;
 }
-
-
 
 void sendto_SSL(SSL *ssl, int tunfd)
 {
@@ -196,6 +220,6 @@ void sendto_SSL(SSL *ssl, int tunfd)
     if (len >= 20 && buf[0] == 0x45)
     {
         int ret = SSL_write(ssl, buf, len);
-        printf(PREFIX"TUN => SSL: %dbytes\n", ret);
+        printf(PREFIX "TUN => SSL: %dbytes\n", ret);
     }
 }
